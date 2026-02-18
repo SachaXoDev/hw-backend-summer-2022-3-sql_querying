@@ -1,0 +1,48 @@
+name: Check homework
+on: [push]
+jobs:
+  runner-job:
+    if: ${{ github.repository_owner != 'ktsstudio' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: demo
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio sqlalchemy==2.0.23 asyncpg pyyaml greenlet
+
+      - name: Setup database
+        run: |
+          export PGPASSWORD=postgres
+          psql -h localhost -U postgres -d demo -f tests/data/demo.sql
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run tests
+        run: |
+          export CONFIGPATH=./tests/config.yml
+          export PYTHONPATH=.
+          pytest tests/ -v
+        env:
+          CONFIGPATH: ./tests/config.yml
+          PYTHONPATH: .
